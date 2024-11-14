@@ -1,42 +1,89 @@
 import asyncio 
 import logging
+from enum import Enum
+
+# (printf '*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n';) | nc localhost 6379 # ECHO
+# (printf '*3\r\n$3\r\nSET\r\n$10\r\nstrawberry\r\n$5\r\napple\r\n';) | nc localhost 6379 # SET
+
 
 logging.basicConfig(level=logging.DEBUG)
+ 
+class Constants(Enum):
+    
+    SEPARATOR = '\r\n'
+    
+class StorageManager:
+    
+    def __init__(self):
+        self.storage = {}
+    
+    def store(self, to_store):
+        self.storage.update(to_store)
+        logging.debug("Stored %s", to_store)
+        
+    def get(self, to_get):
+        return self.storage.get(to_get)
+    
 
+class Runner:
+    
+    sm = StorageManager()
+    
+    def run_echo(self, to_echo):
+        logging.debug("Running ECHO")
+        return to_echo
+    
+    def run_ping(self):
+        logging.debug("Running PING")
+        return "+PONG"
+    
+    def run_set(self, to_set):
+        logging.debug("Running SET")
+        self.sm.store({to_set[0]: to_set[1]})
+        return "+OK"
+    
+    def run_get(self, to_get):
+        logging.debug("Getting %s", to_get)
+        return self.sm.get(to_get)
+        
+        
 class RESPParser:
         
-    SEPARATOR = "\r\n"
+    runner = Runner()
     
     def handle_command(self, cmd):
+        logging.debug("Raw command: %s", cmd)
         cmd = cmd.decode("utf-8")
         logging.debug("CMD as string: %s", cmd)
-        cmd = cmd.split(self.SEPARATOR)
+        cmd = cmd.split(Constants.SEPARATOR.value)
         if cmd[0][0] == '*':            
             resp = self._handle_array(cmd)
-            
+                        
+        resp += Constants.SEPARATOR.value
         return resp.encode('utf-8')
     
-    def _handle_echo(self, to_echo):
-        return '$' + str(len(to_echo)) + self.SEPARATOR + to_echo + self.SEPARATOR
-        
-    def _handle_ping(self):
-        return "+PONG" + self.SEPARATOR 
-    
+    def _bulk_string(self, string):
+        return '$' + str(len(string)) + Constants.SEPARATOR.value + string
+
     def _handle_array(self, cmd):
         logging.debug("Handling array %s", cmd)
-        array_len = int(cmd[0][1])
+        array_len = int(cmd[0][1]) * 2 + 1 # * 2 as every command is preceded by the amount of bytes, +1 for the self.TERMINATOR suffix
         logging.debug("As per CMD, array length is: %s", array_len)
-        # array_len + 3 because: we don't care about the 2 first elements (array length and length of the first actual cmd)
-        # and also range() is exclusive and we care about the last element
-        # step is 2 so we skip the byte lengths
         to_run = []
-        for i in range(2, array_len+3, 2): 
+        for i in range(2, array_len, 2):
             to_run.append(cmd[i])
+        logging.debug("CMD to run %s", to_run)
         if to_run[0] == 'ECHO':
-            return self._handle_echo(to_run[1])
+            echo = self.runner.run_echo(to_run[1])
+            return self._bulk_string(echo)
         if to_run[0] == 'PING':
-            return self._handle_ping() 
-
+            return self.runner.run_ping()
+        if to_run[0] == 'SET':
+            return self.runner.run_set(to_run[1:])
+        if to_run[0] == 'GET':
+            got = self.runner.run_get(to_run[1])
+            return self._bulk_string(got)           
+            
 async def redis_server(reader, writer):
     parser = RESPParser()
     while True:
