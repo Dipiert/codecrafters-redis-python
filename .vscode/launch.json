@@ -15,13 +15,16 @@
         },
         {
             "name": "Python Runner: Redis with args",
-            "type": "debugpy",
+            "type": "python",
             "request": "launch",
-            "program": "${file}",
+            "program": "${workspaceFolder}/app/main.py",
             "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+            },
             "args": [
-                "--dir", "/tmp/redis-files",
-                "--dbfilename", "y"
+                "--dir", ".",
+                "--dbfilename", "dump.rdb"
             ]
         }
     ]

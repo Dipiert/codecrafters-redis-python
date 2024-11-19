@@ -1,7 +1,7 @@
 import logging
 
-from app.runner import Runner
-from app.constants import Constants
+from .runner import Runner
+from .constants import Constants
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -24,7 +24,7 @@ class RESPParser:
             
         return resp.encode('utf-8')
     
-    def _bulk_string(self, list_to_bulk):
+    def _bulk_string(self, list_to_bulk, force_array=False):
         res = []
         
         logging.debug("Bulk string-ing: %s", list_to_bulk)
@@ -32,7 +32,7 @@ class RESPParser:
         if list_to_bulk == [None]:
             return '$-1' # null bulk string
         
-        if len(list_to_bulk) > 1:
+        if len(list_to_bulk) > 1 or force_array:
             res.append(Constants.ARRAY_FIRST_BYTE.value + str(len(list_to_bulk)))
         
         for i in list_to_bulk:
@@ -42,7 +42,8 @@ class RESPParser:
         
     def _handle_array(self, cmd):
         logging.debug("Handling array %s", cmd)
-        array_len = int(cmd[0][1]) * 2 + 1 # * 2 as every command is preceded by the amount of bytes, +1 for the Constants.SEPARATOR suffix
+        # * 2 as every command is preceded by the amount of bytes, +1 for the Constants.SEPARATOR suffix
+        array_len = int(cmd[0][1]) * 2 + 1 
         logging.debug("As per CMD, array length is: %s", array_len)
         to_run = []
         for i in range(2, array_len, 2):
@@ -64,6 +65,12 @@ class RESPParser:
             if to_run[1] == 'GET':
                 got = self.runner.run_config_get(to_run[2])
                 return self._bulk_string(got)
+        if action == 'SAVE':
+            self.runner.generate_rdb_file()
+        if action == 'KEYS':
+            if to_run[1] == '*':
+                all_keys = self.runner.run_keys_all()
+                return self._bulk_string(all_keys, True)
         
         logging.warning("Unknown command: %s", to_run)
         return ""

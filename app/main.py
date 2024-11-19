@@ -7,16 +7,22 @@ from app.resp_parser import RESPParser
 
 # Local tests:
 # ECHO
-# (printf '*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n';) | nc localhost 6379 # ECHO
+# Terminal 1: (printf '*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n';) | nc localhost 6379 # ECHO
 # SET / GET
-# (printf '*3\r\n$3\r\nSET\r\n$10\r\nstrawberry\r\n$5\r\napple\r\n';) | nc localhost 6379 # SET
-# in other terminal -> (printf '*2\r\n$3\r\nGET\r\n$10\r\nstrawberry\r\n';) | nc localhost 6379
+# Terminal 1: (printf '*3\r\n$3\r\nSET\r\n$10\r\nstrawberry\r\n$5\r\napple\r\n';) | nc localhost 6379 # SET
+# Terminal 2: (printf '*2\r\n$3\r\nGET\r\n$10\r\nstrawberry\r\n';) | nc localhost 6379
 # SET w/ expiry
-# (printf '*5\r\n$3\r\nSET\r\n$10\r\nstrawberry\r\n$4\r\npear\r\n$2\r\npx\r\n$3\r\n100\r\n';) | nc localhost 6379 
-# in other terminal -> sleep 0.2 && (printf '*2\r\n$3\r\nGET\r\n$10\r\nstrawberry\r\n';) | nc localhost 6379 
+# Terminal 1: (printf '*5\r\n$3\r\nSET\r\n$10\r\nstrawberry\r\n$4\r\npear\r\n$2\r\npx\r\n$3\r\n100\r\n';) | nc localhost 6379 
+# Terminal 2: sleep 0.2 && (printf '*2\r\n$3\r\nGET\r\n$10\r\nstrawberry\r\n';) | nc localhost 6379 
 # CONFIG GET
-# (printf '*3\r\n$6\r\nCONFIG\r\n$3\r\nGET\r\n$3\r\ndir\r\n';) | nc localhost 6379
-             
+# Terminal 1: (printf '*3\r\n$6\r\nCONFIG\r\n$3\r\nGET\r\n$3\r\ndir\r\n';) | nc localhost 6379
+# KEYS *
+# Terminal 1: (in project directory) redis-server
+# Terminal 2: redis-cli set orange mango
+# Terminal 2: redis-cli save
+# Terminal 1: Ctrl + C (see <dbfilename>.rdb created in <dir>)
+# Terminal 1: (printf '*2\r\n$4\r\nKEYS\r\n$1\r\n*\r\n' ;) | nc localhost 6379
+
             
 async def redis_server(reader, writer, dir=None, dbfilename=None):
     parser = RESPParser()
